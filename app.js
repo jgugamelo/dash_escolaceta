@@ -220,7 +220,7 @@ function processCSVData(csvText) {
     ];
 }
 
-// Load data (Try local CSV first, then Live Google Sheet, fallback to data.json)
+// Load data (Try Live Google Sheet first, fallback to data.json)
 async function loadData(showOverlay = true) {
     const statusEl = document.getElementById('data-source-status');
     const loadingStatusEl = document.getElementById('loading-status');
@@ -231,31 +231,7 @@ async function loadData(showOverlay = true) {
     }
 
     try {
-        // Attempt 1: Local data.csv in directory
-        try {
-            if (showOverlay && loadingStatusEl) {
-                loadingStatusEl.innerText = "Carregando banco de dados local (data.csv)...";
-            }
-            const response = await fetch('data.csv');
-            if (!response.ok) throw new Error("Arquivo data.csv local não disponível");
-            
-            const csvText = await response.text();
-            if (!csvText.trim()) throw new Error("Arquivo data.csv local está vazio");
-            
-            processCSVData(csvText);
-            
-            if (statusEl) {
-                statusEl.className = "status-badge live";
-                statusEl.innerHTML = "Sincronizado Local (CSV)";
-                statusEl.style.backgroundColor = "#3a86ff"; // Blue color for local CSV
-            }
-            console.log("Successfully loaded local database from data.csv");
-            return; // Exit on success
-        } catch (e) {
-            console.log("data.csv local não disponível, tentando Google Sheets. Motivo: ", e.message);
-        }
-
-        // Attempt 2: Live Google Sheets CSV
+        // Attempt 1: Live Google Sheets CSV
         try {
             if (showOverlay && loadingStatusEl) {
                 loadingStatusEl.innerText = "Baixando dados em tempo real da planilha...";
@@ -276,7 +252,7 @@ async function loadData(showOverlay = true) {
             console.warn("Could not load live Google Sheet data. Error: ", error.message);
         }
 
-        // Attempt 3: Fallback preprocessed data.json
+        // Attempt 2: Fallback preprocessed data.json
         try {
             if (showOverlay && loadingStatusEl) {
                 loadingStatusEl.innerText = "Carregando banco de dados local alternativo...";
@@ -288,7 +264,7 @@ async function loadData(showOverlay = true) {
             
             if (statusEl) {
                 statusEl.className = "status-badge fallback";
-                statusEl.innerHTML = "Banco de Dados Local (JSON)";
+                statusEl.innerHTML = "Banco de Dados Local";
             }
             console.log("Successfully loaded fallback data.json");
         } catch (localError) {

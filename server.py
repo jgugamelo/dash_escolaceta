@@ -2,6 +2,7 @@ import http.server
 import socketserver
 import json
 import os
+import csv
 
 PORT = 8000
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
@@ -17,15 +18,28 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             
-            goals_file = os.path.join(DIRECTORY, 'goals.json')
-            if os.path.exists(goals_file):
+            metas_file = os.path.join(DIRECTORY, 'metas.csv')
+            goals = {}
+            if os.path.exists(metas_file):
                 try:
-                    with open(goals_file, 'r', encoding='utf-8') as f:
-                        self.wfile.write(f.read().encode('utf-8'))
+                    with open(metas_file, 'r', encoding='utf-8') as f:
+                        reader = csv.reader(f)
+                        header = next(reader, None) # Skip header row
+                        for row in reader:
+                            if len(row) >= 2:
+                                key = row[0].strip()
+                                val_str = row[1].strip()
+                                try:
+                                    goals[key] = int(val_str)
+                                except ValueError:
+                                    try:
+                                        goals[key] = float(val_str)
+                                    except ValueError:
+                                        goals[key] = val_str
                 except Exception as e:
-                    self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
-            else:
-                self.wfile.write(b'{}')
+                    goals = {"error": str(e)}
+            
+            self.wfile.write(json.dumps(goals, indent=4, ensure_ascii=False).encode('utf-8'))
         else:
             super().do_GET()
 
@@ -37,9 +51,14 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 # Validate json
                 goals = json.loads(post_data.decode('utf-8'))
-                goals_file = os.path.join(DIRECTORY, 'goals.json')
-                with open(goals_file, 'w', encoding='utf-8') as f:
-                    json.dump(goals, f, indent=4, ensure_ascii=False)
+                metas_file = os.path.join(DIRECTORY, 'metas.csv')
+                
+                # Write to metas.csv
+                with open(metas_file, 'w', encoding='utf-8', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["Mês/Ano", "Meta"]) # CSV Headers
+                    for k, v in goals.items():
+                        writer.writerow([k, v])
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
