@@ -164,7 +164,63 @@ window.addEventListener('load', async () => {
     }, 300000);
 });
 
-// Load data (Try Live Google Sheet first, fallback to data.json)
+// Load data (Try Live Google Sheet first, fallback to data.j// Helper to process CSV string and populate rawData
+function processCSVData(csvText) {
+    const csvData = parseCSV(csvText);
+    
+    // Find header row in CSV (usually the third line in our data, or searching for '#')
+    let headerIndex = -1;
+    for (let i = 0; i < csvData.length; i++) {
+        if (csvData[i] && csvData[i][0] === '#') {
+            headerIndex = i;
+            break;
+        }
+    }
+    
+    if (headerIndex === -1) throw new Error("Formato de cabeçalho da planilha inválido");
+    
+    const header = csvData[headerIndex];
+    const rows = csvData.slice(headerIndex + 1);
+    
+    rawData.matriculas = [];
+    rows.forEach(r => {
+        if (r.length < 13) return;
+        const id = r[0].trim();
+        const aluno = r[1].trim();
+        if (!aluno || aluno.toLowerCase().startsWith('aluno') || id === '#') return;
+        
+        const dateObj = parseDate(r[6]);
+        if (!dateObj) return;
+        
+        let turno = r[4].trim();
+        if (turno === 'Sãbado') turno = 'Sábado';
+        if (turno === 'Semanal M') turno = 'Semanal';
+        
+        rawData.matriculas.push({
+            id: id,
+            aluno: aluno,
+            curso: r[2].trim(),
+            consultor: r[3].trim(),
+            turno: turno,
+            modulo: r[5].trim(),
+            data: dateObj.toISOString().split('T')[0],
+            origem: r[7].trim(),
+            telefone: r[9].trim(),
+            mensalidade1: parseMoney(r[10]),
+            bolsa: parsePercent(r[11]),
+            mensalidade_demais: parseMoney(r[12])
+        });
+    });
+    
+    // Load default metas since we only get sheet 1 from standard export?format=csv
+    rawData.metas = [
+        { mes: 'Jan', quantidade: 80 },
+        { mes: 'Fev', quantidade: 80 },
+        { mes: 'Mar', quantidade: 80 }
+    ];
+}
+
+// Load data (Try local CSV first, then Live Google Sheet, fallback to data.json)
 async function loadData(showOverlay = true) {
     const statusEl = document.getElementById('data-source-status');
     const loadingStatusEl = document.getElementById('loading-status');
@@ -175,79 +231,56 @@ async function loadData(showOverlay = true) {
     }
 
     try {
-        if (showOverlay && loadingStatusEl) {
-            loadingStatusEl.innerText = "Baixando dados em tempo real da planilha...";
-        }
-        const response = await fetch(googleSheetUrl);
-        if (!response.ok) throw new Error("Erro na rede ou CORS ao buscar a planilha");
-        
-        const csvText = await response.text();
-        const csvData = parseCSV(csvText);
-        
-        // Find header row in CSV (usually the third line in our data, or searching for '#')
-        let headerIndex = -1;
-        for (let i = 0; i < csvData.length; i++) {
-            if (csvData[i] && csvData[i][0] === '#') {
-                headerIndex = i;
-                break;
-            }
-        }
-        
-        if (headerIndex === -1) throw new Error("Formato de cabeçalho da planilha inválido");
-        
-        const header = csvData[headerIndex];
-        const rows = csvData.slice(headerIndex + 1);
-        
-        rawData.matriculas = [];
-        rows.forEach(r => {
-            if (r.length < 13) return;
-            const id = r[0].trim();
-            const aluno = r[1].trim();
-            if (!aluno || aluno.toLowerCase().startsWith('aluno') || id === '#') return;
-            
-            const dateObj = parseDate(r[6]);
-            if (!dateObj) return;
-            
-            let turno = r[4].trim();
-            if (turno === 'Sãbado') turno = 'Sábado';
-            if (turno === 'Semanal M') turno = 'Semanal';
-            
-            rawData.matriculas.push({
-                id: id,
-                aluno: aluno,
-                curso: r[2].trim(),
-                consultor: r[3].trim(),
-                turno: turno,
-                modulo: r[5].trim(),
-                data: dateObj.toISOString().split('T')[0],
-                origem: r[7].trim(),
-                telefone: r[9].trim(),
-                mensalidade1: parseMoney(r[10]),
-                bolsa: parsePercent(r[11]),
-                mensalidade_demais: parseMoney(r[12])
-            });
-        });
-        
-        // Load default metas since we only get sheet 1 from standard export?format=csv
-        rawData.metas = [
-            { mes: 'Jan', quantidade: 80 },
-            { mes: 'Fev', quantidade: 80 },
-            { mes: 'Mar', quantidade: 80 }
-        ];
-        
-        if (statusEl) {
-            statusEl.className = "status-badge live";
-            statusEl.innerHTML = "Sincronizado Planilha";
-        }
-        console.log("Successfully loaded live data from Google Sheet");
-        
-    } catch (error) {
-        console.warn("Could not load live Google Sheet data. Error: ", error.message);
-        if (showOverlay && loadingStatusEl) {
-            loadingStatusEl.innerText = "Carregando banco de dados local alternativo...";
-        }
-        
+        // Attempt 1: Local data.csv in directory
         try {
+            if (showOverlay && loadingStatusEl) {
+                loadingStatusEl.innerText = "Carregando banco de dados local (data.csv)...";
+            }
+            const response = await fetch('data.csv');
+            if (!response.ok) throw new Error("Arquivo data.csv local não disponível");
+            
+            const csvText = await response.text();
+            if (!csvText.trim()) throw new Error("Arquivo data.csv local está vazio");
+            
+            processCSVData(csvText);
+            
+            if (statusEl) {
+                statusEl.className = "status-badge live";
+                statusEl.innerHTML = "Sincronizado Local (CSV)";
+                statusEl.style.backgroundColor = "#3a86ff"; // Blue color for local CSV
+            }
+            console.log("Successfully loaded local database from data.csv");
+            return; // Exit on success
+        } catch (e) {
+            console.log("data.csv local não disponível, tentando Google Sheets. Motivo: ", e.message);
+        }
+
+        // Attempt 2: Live Google Sheets CSV
+        try {
+            if (showOverlay && loadingStatusEl) {
+                loadingStatusEl.innerText = "Baixando dados em tempo real da planilha...";
+            }
+            const response = await fetch(googleSheetUrl);
+            if (!response.ok) throw new Error("Erro na rede ou CORS ao buscar a planilha");
+            
+            const csvText = await response.text();
+            processCSVData(csvText);
+            
+            if (statusEl) {
+                statusEl.className = "status-badge live";
+                statusEl.innerHTML = "Sincronizado Planilha";
+            }
+            console.log("Successfully loaded live data from Google Sheet");
+            return; // Exit on success
+        } catch (error) {
+            console.warn("Could not load live Google Sheet data. Error: ", error.message);
+        }
+
+        // Attempt 3: Fallback preprocessed data.json
+        try {
+            if (showOverlay && loadingStatusEl) {
+                loadingStatusEl.innerText = "Carregando banco de dados local alternativo...";
+            }
             const response = await fetch('data.json');
             if (!response.ok) throw new Error("Erro ao carregar data.json local");
             const localData = await response.json();
@@ -255,7 +288,7 @@ async function loadData(showOverlay = true) {
             
             if (statusEl) {
                 statusEl.className = "status-badge fallback";
-                statusEl.innerHTML = "Banco de Dados Local";
+                statusEl.innerHTML = "Banco de Dados Local (JSON)";
             }
             console.log("Successfully loaded fallback data.json");
         } catch (localError) {
@@ -268,7 +301,9 @@ async function loadData(showOverlay = true) {
         if (showOverlay && document.getElementById('loading-overlay')) {
             document.getElementById('loading-overlay').classList.add('hidden');
         }
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
     }
 }
 
