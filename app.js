@@ -118,13 +118,14 @@ function parseCSV(text) {
 
 // Default monthly goal for Escola Ceta (Managers can edit this value directly here)
 const DEFAULT_MONTHLY_GOAL = 80;
+const TEAM_GOAL_1 = 35;
+const TEAM_GOAL_2 = 42;
 
 // App Initialization
 window.addEventListener('load', async () => {
     await loadData();
     populateFilters();
-    setDefaultDates();
-    applyFilters();
+    setQuickPeriod('previous'); // Definição padrão de visualização (Mês Anterior)
     
     // Setup date filter change listeners
     document.getElementById('filter-start-date').addEventListener('change', () => {
@@ -1164,10 +1165,13 @@ function renderTeamPerformanceTable(start, end) {
         }
     });
     
-        // Calculate global Meta for division
-    const totalGoal = parseInt(document.getElementById('kpi-meta').innerText) || 240;
-    // Divide meta equally among active consultants
-    const indGoal = Math.round(totalGoal / 3); // Amanda, Edson Jr, Karine
+    // Calculate scale multiplier based on date range
+    const monthsInPeriod = getMonthsInPeriod(start, end);
+    const numMonths = monthsInPeriod.length || 1;
+    
+    // Scale individual goals 1 and 2
+    const indGoal1 = numMonths * TEAM_GOAL_1;
+    const indGoal2 = numMonths * TEAM_GOAL_2;
     
     // Find top seller to highlight (gamification)
     let maxSales = -1;
@@ -1182,8 +1186,8 @@ function renderTeamPerformanceTable(start, end) {
     Object.entries(consData).forEach(([name, metrics]) => {
         if (metrics.sales === 0) return; // Mostrar apenas colaboradores que matricularam no período
         
-        const atingimento = indGoal > 0 ? Math.round((metrics.sales / indGoal) * 100) : 0;
-        const avgTicket = metrics.sales > 0 ? (metrics.revenue1 / metrics.sales) : 0;
+        const atingimento1 = indGoal1 > 0 ? Math.round((metrics.sales / indGoal1) * 100) : 0;
+        const atingimento2 = indGoal2 > 0 ? Math.round((metrics.sales / indGoal2) * 100) : 0;
         const avgBolsa = metrics.bolsaCount > 0 ? Math.round(metrics.bolsaSum / metrics.bolsaCount) : 0;
         
         const totalTurnos = metrics.semanalCount + metrics.sabadoCount;
@@ -1195,24 +1199,25 @@ function renderTeamPerformanceTable(start, end) {
             tr.classList.add('leader-row');
         }
         
-        // Formatting faturamento
-        const formattedRevenue = metrics.revenue1.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        const formattedTicket = avgTicket.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        // Progress bar HTML for achievement rate 1
+        let badgeClass1 = 'text-red';
+        if (atingimento1 >= 100) badgeClass1 = 'text-neon';
+        else if (atingimento1 >= 75) badgeClass1 = 'text-gold';
         
-        // Progress bar HTML for achievement rate
-        let badgeClass = 'text-red';
-        if (atingimento >= 100) badgeClass = 'text-neon';
-        else if (atingimento >= 75) badgeClass = 'text-gold';
+        // Progress bar HTML for achievement rate 2
+        let badgeClass2 = 'text-red';
+        if (atingimento2 >= 100) badgeClass2 = 'text-neon';
+        else if (atingimento2 >= 75) badgeClass2 = 'text-gold';
         
         const displayName = isLeader ? `${name} <span class="leader-crown" title="Líder de Vendas 👑">👑</span>` : name;
         
         tr.innerHTML = `
             <td style="font-weight: 700; display: flex; align-items: center; gap: 8px;">${displayName}</td>
             <td style="font-size: 1.1rem; font-weight: 700;">${metrics.sales}</td>
-            <td style="color: var(--text-secondary);">${indGoal}</td>
-            <td class="${badgeClass}" style="font-weight: 700; font-size: 1rem;">${atingimento}%</td>
-            <td style="color: var(--accent-cyan); font-weight: 600;">${formattedRevenue}</td>
-            <td>${formattedTicket}</td>
+            <td style="color: var(--text-secondary);">${indGoal1}</td>
+            <td class="${badgeClass1}" style="font-weight: 700; font-size: 1rem;">${atingimento1}%</td>
+            <td style="color: var(--text-secondary);">${indGoal2}</td>
+            <td class="${badgeClass2}" style="font-weight: 700; font-size: 1rem;">${atingimento2}%</td>
             <td>${avgBolsa}%</td>
             <td style="color: var(--text-secondary);">${semanalPct}% Semanal <span style="font-size:0.75rem; color:var(--text-muted);">(${100-semanalPct}% Sábado)</span></td>
         `;
