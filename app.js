@@ -125,7 +125,7 @@ const TEAM_GOAL_2 = 42;
 window.addEventListener('load', async () => {
     await loadData();
     populateFilters();
-    setQuickPeriod('previous'); // Definição padrão de visualização (Mês Anterior)
+    setQuickPeriod('current'); // Definição padrão de visualização (Mês Atual)
     
     // Setup date filter change listeners
     document.getElementById('filter-start-date').addEventListener('change', () => {
