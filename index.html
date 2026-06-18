@@ -149,7 +149,6 @@
                     </div>
                     <div class="kpi-value-container">
                         <span class="kpi-value" id="kpi-meta">240</span>
-                        <button class="kpi-edit-btn" onclick="openMetaModal()"><i data-lucide="edit-3"></i></button>
                     </div>
                     <div class="kpi-footer">
                         <span>Objetivo de matrículas</span>
@@ -297,23 +296,7 @@
         </main>
     </div>
 
-    <!-- Meta Adjustment Modal -->
-    <div id="meta-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal" onclick="closeMetaModal()">&times;</span>
-            <h2>Configurar Metas Mensais</h2>
-            <p class="modal-desc">Configure as metas para cada mês do período selecionado. Elas ficarão salvas permanentemente.</p>
-            
-            <div id="modal-monthly-inputs-container" class="modal-inputs-container">
-                <!-- Injected dynamically via JS -->
-            </div>
 
-            <div class="modal-actions">
-                <button class="modal-btn secondary" onclick="closeMetaModal()">Cancelar</button>
-                <button class="modal-btn primary" onclick="saveMonthlyGoals()">Salvar Metas</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Script Entry Point -->
     <script src="app.js"></script>

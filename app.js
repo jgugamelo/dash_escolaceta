@@ -116,28 +116,12 @@ function parseCSV(text) {
     return lines;
 }
 
-// Global cache for monthly goals loaded from server
-let serverGoals = {};
-
-// Load goals from the server
-async function loadServerGoals() {
-    try {
-        const response = await fetch('/api/goals');
-        if (response.ok) {
-            const data = await response.json();
-            serverGoals = data;
-            // Backup in localStorage
-            localStorage.setItem('ceta_monthly_goals', JSON.stringify(serverGoals));
-        }
-    } catch (e) {
-        console.warn("Não foi possível carregar as metas do servidor, usando localStorage:", e);
-    }
-}
+// Default monthly goal for Escola Ceta (Managers can edit this value directly here)
+const DEFAULT_MONTHLY_GOAL = 80;
 
 // App Initialization
 window.addEventListener('load', async () => {
     await loadData();
-    await loadServerGoals();
     populateFilters();
     setDefaultDates();
     applyFilters();
@@ -539,34 +523,8 @@ function calculateKPIs(start, end) {
 }
 
 // Persistent Monthly Metas Helpers
-function getMonthlyGoals() {
-    if (Object.keys(serverGoals).length > 0) {
-        return serverGoals;
-    }
-    const saved = localStorage.getItem('ceta_monthly_goals');
-    if (saved) {
-        try { 
-            const parsed = JSON.parse(saved); 
-            serverGoals = parsed;
-            return parsed; 
-        } catch (e) {}
-    }
-    // Default goals from workbook
-    return {
-        'Jan': 80,
-        'Fev': 80,
-        'Mar': 80
-    };
-}
-
 function getGoalForMonthYear(monthStr, yearNum) {
-    const goals = getMonthlyGoals();
-    const keyFull = `${monthStr}/${yearNum.toString().substring(2)}`; // e.g. "Jan/26"
-    const keyShort = monthStr;
-    
-    if (goals[keyFull] !== undefined) return parseInt(goals[keyFull]);
-    if (goals[keyShort] !== undefined) return parseInt(goals[keyShort]);
-    return 80; // default baseline goal
+    return DEFAULT_MONTHLY_GOAL;
 }
 
 function getMonthsInPeriod(start, end) {
@@ -582,72 +540,6 @@ function getMonthsInPeriod(start, end) {
         d.setMonth(d.getMonth() + 1);
     }
     return months;
-}
-
-// Modal actions for Goal setting (Dynamic Month List)
-function openMetaModal() {
-    const container = document.getElementById('modal-monthly-inputs-container');
-    if (!container) return;
-    
-    container.innerHTML = '';
-    
-    // Get date range inputs
-    const startDateVal = document.getElementById('filter-start-date').value;
-    const endDateVal = document.getElementById('filter-end-date').value;
-    const start = startDateVal ? new Date(startDateVal + 'T00:00:00') : new Date(0);
-    const end = endDateVal ? new Date(endDateVal + 'T23:59:59') : new Date();
-    
-    const months = getMonthsInPeriod(start, end);
-    
-    months.forEach(m => {
-        const currentGoal = getGoalForMonthYear(m.name, m.year);
-        
-        const row = document.createElement('div');
-        row.className = 'modal-monthly-row';
-        row.innerHTML = `
-            <label>${m.name}/${m.year.toString().substring(2)}</label>
-            <input type="number" class="monthly-goal-input" data-key="${m.key}" min="1" max="1000" value="${currentGoal}">
-        `;
-        container.appendChild(row);
-    });
-    
-    document.getElementById('meta-modal').classList.add('open');
-}
-
-function closeMetaModal() {
-    document.getElementById('meta-modal').classList.remove('open');
-}
-
-async function saveMonthlyGoals() {
-    const inputs = document.querySelectorAll('.monthly-goal-input');
-    const goals = getMonthlyGoals();
-    
-    inputs.forEach(input => {
-        const key = input.getAttribute('data-key');
-        const val = parseInt(input.value);
-        if (!isNaN(val) && val > 0) {
-            goals[key] = val;
-        }
-    });
-    
-    serverGoals = goals;
-    localStorage.setItem('ceta_monthly_goals', JSON.stringify(goals));
-    
-    // Save to server goals.json
-    try {
-        await fetch('/api/goals', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(goals)
-        });
-    } catch (e) {
-        console.error("Não foi possível salvar as metas no servidor:", e);
-    }
-    
-    closeMetaModal();
-    applyFilters();
 }
 
 // Tab Switching Mechanism
