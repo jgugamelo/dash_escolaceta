@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escola Ceta - Dashboard de Matrículas</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- ApexCharts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loader-container">
+            <div class="spinner"></div>
+            <h3>Carregando dados da Escola Ceta...</h3>
+            <p id="loading-status">Conectando à planilha do Google Sheets...</p>
+        </div>
+    </div>
+
+    <!-- Main Layout Grid -->
+    <div class="app-container">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-container">
+                    <img src="logoCetaHorizontal_branco.png" alt="Escola Ceta Logo" class="logo-img">
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <button class="nav-btn active" id="tab-geral-btn" onclick="switchTab('geral')">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard Geral</span>
+                </button>
+                <button class="nav-btn" id="tab-equipe-btn" onclick="switchTab('equipe')">
+                    <i data-lucide="users"></i>
+                    <span>Dashboard Equipe</span>
+                </button>
+            </nav>
+
+            <!-- Mascot container in sidebar -->
+            <div class="sidebar-mascot-container">
+                <img src="MascoteCeta.png" alt="Mascote Escola Ceta" class="sidebar-mascot">
+            </div>
+
+            <div class="sidebar-footer">
+                <p>Status: <span id="data-source-status" class="status-badge live">Conectado Live</span></p>
+                <p class="sync-note"><i data-lucide="refresh-cw"></i> Atualizando a cada 5 min</p>
+            </div>
+        </aside>
+
+        <!-- Main Dashboard Container -->
+        <main class="main-content">
+            
+            <!-- Top Header & Filter Controls -->
+            <header class="dashboard-header">
+                <div class="header-title">
+                    <h1>Dashboard</h1>
+                    <p class="subtitle" id="current-period-text">Período selecionado: 02/01/2024 a 18/06/2026</p>
+                </div>
+                
+                <!-- Filter Controls -->
+                <div class="filter-controls-container">
+                    <!-- Top Row: Date period selection and Clear button -->
+                    <div class="filter-top-row">
+                        <div class="filter-group period-filter-group">
+                            <label class="filter-section-title">
+                                <i data-lucide="calendar"></i>
+                                <span>Período de Análise</span>
+                            </label>
+                            <div class="period-controls-wrapper">
+                                <div class="date-inputs">
+                                    <input type="date" id="filter-start-date" value="2024-01-02">
+                                    <span class="date-separator">até</span>
+                                    <input type="date" id="filter-end-date" value="2026-06-18">
+                                </div>
+                                <div class="quick-filters-segment">
+                                    <button class="quick-btn" id="btn-quick-current" onclick="setQuickPeriod('current')">Mês Atual</button>
+                                    <button class="quick-btn" id="btn-quick-previous" onclick="setQuickPeriod('previous')">Mês Anterior</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Reset Button -->
+                        <button class="reset-btn-pill" onclick="resetFilters()" title="Limpar todos os filtros">
+                            <i data-lucide="filter-x"></i>
+                            <span>Limpar Filtros</span>
+                        </button>
+                    </div>
+
+                    <!-- Decorative Divider -->
+                    <div class="filter-divider"></div>
+
+                    <!-- Bottom Row: Dimensional dropdowns -->
+                    <div class="filter-bottom-row">
+                        <div class="filter-dropdown-grid">
+                            <div class="filter-group">
+                                <label><i data-lucide="graduation-cap"></i> Curso</label>
+                                <select id="filter-curso">
+                                    <option value="all">Todos os Cursos</option>
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label><i data-lucide="user-check"></i> Consultor</label>
+                                <select id="filter-consultor">
+                                    <option value="all">Todos os Consultores</option>
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label><i data-lucide="clock"></i> Turno</label>
+                                <select id="filter-turno">
+                                    <option value="all">Todos os Turnos</option>
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label><i data-lucide="share-2"></i> Origem</label>
+                                <select id="filter-origem">
+                                    <option value="all">Todas as Origens</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Cards KPIs Section -->
+            <section class="kpi-section">
+                <!-- Card Meta -->
+                <div class="kpi-card target-card">
+                    <div class="kpi-header">
+                        <span>Meta do Período</span>
+                        <div class="kpi-icon-container">
+                            <i data-lucide="target" class="text-neon"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-value-container">
+                        <span class="kpi-value" id="kpi-meta">240</span>
+                        <button class="kpi-edit-btn" onclick="openMetaModal()"><i data-lucide="edit-3"></i></button>
+                    </div>
+                    <div class="kpi-footer">
+                        <span>Objetivo de matrículas</span>
+                    </div>
+                </div>
+
+                <!-- Card Matrículas Feitas -->
+                <div class="kpi-card done-card">
+                    <div class="kpi-header">
+                        <span>Matrículas Feitas</span>
+                        <div class="kpi-icon-container">
+                            <i data-lucide="trending-up" class="text-cyan"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-value-container">
+                        <span class="kpi-value" id="kpi-matriculas-feitas">0</span>
+                        <span class="trend-badge" id="kpi-matriculas-trend" style="display: none;">0%</span>
+                    </div>
+                    <div class="kpi-footer">
+                        <span id="kpi-periodo-detalhe">No período selecionado</span>
+                    </div>
+                </div>
+
+                <!-- Card Atingimento da Meta -->
+                <div class="kpi-card achievement-card">
+                    <div class="kpi-header">
+                        <span>Atingimento da Meta</span>
+                        <div class="kpi-icon-container" id="achievement-icon-container">
+                            <i data-lucide="award" class="text-gold"></i>
+                        </div>
+                    </div>
+                    <div class="kpi-value-container">
+                        <span class="kpi-value" id="kpi-atingimento">0</span>
+                        <span class="kpi-percentage-badge" id="kpi-percentual">0%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="kpi-progress-bar" style="width: 0%"></div>
+                    </div>
+                    <div class="kpi-footer">
+                        <span id="kpi-atingimento-label">Matrículas em relação à meta</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab 1: Dashboard Geral -->
+            <div id="tab-geral-content" class="tab-content active">
+                <div class="dashboard-grid">
+                    <!-- Row 1: Curso and Turno -->
+                    <div class="grid-card col-8">
+                        <div class="card-header">
+                            <h3><i data-lucide="bar-chart-2"></i> Matrículas por Curso</h3>
+                        </div>
+                        <div class="chart-container" id="chart-curso"></div>
+                    </div>
+
+                    <div class="grid-card col-4">
+                        <div class="card-header">
+                            <h3><i data-lucide="pie-chart"></i> Matrículas por Turno</h3>
+                        </div>
+                        <div class="chart-container" id="chart-turno"></div>
+                    </div>
+
+                    <!-- Row 2: Consultor and Origem -->
+                    <div class="grid-card col-6">
+                        <div class="card-header">
+                            <h3><i data-lucide="user-check"></i> Matrículas por Consultor</h3>
+                        </div>
+                        <div class="chart-container" id="chart-consultor"></div>
+                    </div>
+
+                    <div class="grid-card col-6">
+                        <div class="card-header">
+                            <h3><i data-lucide="share-2"></i> Matrículas por Origem</h3>
+                        </div>
+                        <div class="chart-container" id="chart-origem"></div>
+                    </div>
+
+                    <!-- Row 3: Timeline Day by Day -->
+                    <div class="grid-card col-12">
+                        <div class="card-header">
+                            <h3><i data-lucide="activity"></i> Matrículas por Dia</h3>
+                            <div class="chart-actions">
+                                <span class="chart-hint">Dica: Use a barra inferior do gráfico para dar zoom no período</span>
+                            </div>
+                        </div>
+                        <div class="chart-container" id="chart-dia"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Dashboard Equipe -->
+            <div id="tab-equipe-content" class="tab-content">
+                <div class="dashboard-grid">
+                    <!-- Row 1: Sales trends comparison -->
+                    <div class="grid-card col-12">
+                        <div class="card-header">
+                            <h3><i data-lucide="line-chart"></i> Desempenho Comparativo de Vendas (Mensal)</h3>
+                        </div>
+                        <div class="chart-container" id="chart-team-trend"></div>
+                    </div>
+
+                    <!-- Row 2: Origin per Consultant, and Course per Consultant -->
+                    <div class="grid-card col-6">
+                        <div class="card-header">
+                            <h3><i data-lucide="channels"></i> Canais de Origem por Consultor</h3>
+                        </div>
+                        <div class="chart-container" id="chart-team-origin"></div>
+                    </div>
+
+                    <div class="grid-card col-6">
+                        <div class="card-header">
+                            <h3><i data-lucide="book-open"></i> Matrículas por Curso e Consultor</h3>
+                        </div>
+                        <div class="chart-container" id="chart-team-course"></div>
+                    </div>
+
+                    <!-- Row 3: Revenue KPIs and Team Table -->
+                    <div class="grid-card col-12">
+                        <div class="card-header">
+                            <h3><i data-lucide="table"></i> Métricas Individuais da Equipe</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="team-table" id="team-performance-table">
+                                <thead>
+                                    <tr>
+                                        <th>Consultor</th>
+                                        <th>Matrículas Feitas</th>
+                                        <th>Meta Individual</th>
+                                        <th>Atingimento (%)</th>
+                                        <th>Faturamento (1ª Mens.)</th>
+                                        <th>Ticket Médio</th>
+                                        <th>Bolsa Média (%)</th>
+                                        <th>Fidelidade (Semanal %)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Populated dynamically via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </main>
+    </div>
+
+    <!-- Meta Adjustment Modal -->
+    <div id="meta-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeMetaModal()">&times;</span>
+            <h2>Configurar Metas Mensais</h2>
+            <p class="modal-desc">Configure as metas para cada mês do período selecionado. Elas ficarão salvas permanentemente.</p>
+            
+            <div id="modal-monthly-inputs-container" class="modal-inputs-container">
+                <!-- Injected dynamically via JS -->
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn secondary" onclick="closeMetaModal()">Cancelar</button>
+                <button class="modal-btn primary" onclick="saveMonthlyGoals()">Salvar Metas</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Entry Point -->
+    <script src="app.js"></script>
+    <script>
+        // Initialize Lucide Icons on document load
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
