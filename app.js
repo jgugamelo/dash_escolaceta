@@ -116,9 +116,28 @@ function parseCSV(text) {
     return lines;
 }
 
+// Global cache for monthly goals loaded from server
+let serverGoals = {};
+
+// Load goals from the server
+async function loadServerGoals() {
+    try {
+        const response = await fetch('/api/goals');
+        if (response.ok) {
+            const data = await response.json();
+            serverGoals = data;
+            // Backup in localStorage
+            localStorage.setItem('ceta_monthly_goals', JSON.stringify(serverGoals));
+        }
+    } catch (e) {
+        console.warn("Não foi possível carregar as metas do servidor, usando localStorage:", e);
+    }
+}
+
 // App Initialization
 window.addEventListener('load', async () => {
     await loadData();
+    await loadServerGoals();
     populateFilters();
     setDefaultDates();
     applyFilters();
@@ -510,9 +529,16 @@ function calculateKPIs(start, end) {
 
 // Persistent Monthly Metas Helpers
 function getMonthlyGoals() {
+    if (Object.keys(serverGoals).length > 0) {
+        return serverGoals;
+    }
     const saved = localStorage.getItem('ceta_monthly_goals');
     if (saved) {
-        try { return JSON.parse(saved); } catch (e) {}
+        try { 
+            const parsed = JSON.parse(saved); 
+            serverGoals = parsed;
+            return parsed; 
+        } catch (e) {}
     }
     // Default goals from workbook
     return {
@@ -581,7 +607,7 @@ function closeMetaModal() {
     document.getElementById('meta-modal').classList.remove('open');
 }
 
-function saveMonthlyGoals() {
+async function saveMonthlyGoals() {
     const inputs = document.querySelectorAll('.monthly-goal-input');
     const goals = getMonthlyGoals();
     
@@ -593,7 +619,22 @@ function saveMonthlyGoals() {
         }
     });
     
+    serverGoals = goals;
     localStorage.setItem('ceta_monthly_goals', JSON.stringify(goals));
+    
+    // Save to server goals.json
+    try {
+        await fetch('/api/goals', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(goals)
+        });
+    } catch (e) {
+        console.error("Não foi possível salvar as metas no servidor:", e);
+    }
+    
     closeMetaModal();
     applyFilters();
 }
